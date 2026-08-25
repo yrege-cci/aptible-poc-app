@@ -22,9 +22,25 @@ import { HealthController } from './health/health.controller';
         const sslOption = sslRequested ? { rejectUnauthorized: false } : false;
 
         if (databaseUrl) {
+          // If SSL is requested but the URL doesn't include sslmode, append it so pg uses TLS
+          let finalUrl = databaseUrl;
+          try {
+            const hasSslmode = /[?&]sslmode=/i.test(databaseUrl);
+            if (sslRequested && !hasSslmode) {
+              finalUrl = databaseUrl.includes('?') ? `${databaseUrl}&sslmode=require` : `${databaseUrl}?sslmode=require`;
+            }
+          } catch (e) {
+            // ignore URL parsing errors and fall back to original URL
+            finalUrl = databaseUrl;
+          }
+
+          // Log that SSL is enabled for DB connections (do not log the URL)
+          // eslint-disable-next-line no-console
+          console.log('Database SSL:', sslRequested ? 'enabled' : 'disabled');
+
           return {
             type: 'postgres',
-            url: databaseUrl,
+            url: finalUrl,
             synchronize: false,
             autoLoadEntities: true,
             ssl: sslOption,
