@@ -13,13 +13,21 @@ import { HealthController } from './health/health.controller';
       useFactory: (config: ConfigService) => {
         // Prefer a single DATABASE_URL if provided (Aptible typically supplies a URL)
         const databaseUrl = config.get<string>('DATABASE_URL');
+
+        // Determine SSL options:
+        // - If env DB_SSL is 'true' or true, enable SSL and allow self-signed certs
+        // - If DATABASE_URL contains sslmode=require, enable SSL similarly
+        const dbSslEnv = config.get<any>('DB_SSL');
+        const sslRequested = dbSslEnv === true || dbSslEnv === 'true' || (databaseUrl && databaseUrl.includes('sslmode=require'));
+        const sslOption = sslRequested ? { rejectUnauthorized: false } : false;
+
         if (databaseUrl) {
           return {
             type: 'postgres',
             url: databaseUrl,
             synchronize: false,
             autoLoadEntities: true,
-            ssl: config.get<boolean>('DB_SSL') === true || config.get<string>('DB_SSL') === 'true',
+            ssl: sslOption,
           } as any;
         }
 
@@ -33,7 +41,7 @@ import { HealthController } from './health/health.controller';
           database: config.get<string>('DB_NAME', 'app_db'),
           synchronize: false,
           autoLoadEntities: true,
-          ssl: config.get<boolean>('DB_SSL') === true || config.get<string>('DB_SSL') === 'true',
+          ssl: sslOption,
         } as any;
       },
     }),
